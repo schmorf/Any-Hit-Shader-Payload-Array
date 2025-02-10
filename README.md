@@ -1,1 +1,9 @@
-# Any-Hit-Shader-Payload-Array
+# Any Hit Shader Payload Array
+
+This repository contains a Unity 6000.0.34f1 project for reproducing a supposed bug when using dynamic indices into arrays that are part of the payload structure in an any hit shader. The problem could be observed on an RTX 4080 Super and an RTX 2080 Ti with various driver versions.
+
+The scene includes a simple plane. In play mode, this plane should be rendered in red using raytracing and a simple any hit shader. The any hit shader simply increments *count* in the payload structure which is then written to the output texture by the ray generation shader.
+
+The problem occurs when line 32 in the any hit shader is uncommented. This line writes a value to an array *data* in the payload struct while using *count* as the index. This somehow causes *count* to stay zero after the any hit shader is run as if payload writes by the any hit shader are lost. Due to the branch condition, *count* has to be *0* when accessing the array at this point. Using an index from a constant buffer or a structured buffer causes the same problem. However, writing to the array using an index known at compile time (line 33) works as expected but only as long as line 32 is commented out. Removing calls to IgnoreHit() and AcceptHitAndEndSearch() also causes the bug to disappear.
+
+Line 20 contains a Unity pragma that enables shader debugging symbols. Removing this pragma also makes the bug disappear. If the pragma is used, Unity compiles the shader using *-Zi -Od -Qembed_debug -HV 2018 -Zpc -auto-binding-space 0*. Capturing the built app in Nsight and only removing *-Od* when recompiling the any hit shader seems to fix the problem and show correct results in the debugger.

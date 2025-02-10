@@ -1,0 +1,42 @@
+#include "Common.hlsl"
+
+#pragma enable_ray_tracing_shader_debug_symbols
+
+#pragma max_recursion_depth 1
+
+float4x4 g_InvViewMatrix;
+float4x4 g_InvProjMatrix;
+
+RWTexture2D<float4> g_Output;
+
+[shader("miss")]
+void MissShader(inout RayPayload payload : SV_RayPayload)
+{
+}
+
+[shader("raygeneration")]
+void RayGenShader()
+{ 
+    uint2 launchIndex = DispatchRaysIndex().xy;
+    uint2 launchDim = DispatchRaysDimensions().xy;
+
+    float4 csRayEnd = float4(float2(launchIndex) / launchDim * 2.0f - 1.0f, 0.0f, 1.0f);
+    float4 vsRayEnd = mul(g_InvProjMatrix, csRayEnd);
+    vsRayEnd /= vsRayEnd.w;
+    float3 wsRayEnd = mul(g_InvViewMatrix, vsRayEnd).xyz;
+
+    float3 cameraPosition = float3(g_InvViewMatrix._m03_m13_m23);
+
+    RayDesc ray;
+    ray.Origin = cameraPosition;
+    ray.Direction = normalize(wsRayEnd - cameraPosition);
+    ray.TMin = 0.01f;
+    ray.TMax = 1000.0f;
+    
+    RayPayload payload;
+    payload.count = 0;
+    
+    TraceRay(g_AccelerationStructure, 0, 0xFF, 0, 1, 0, ray, payload);
+
+    g_Output[launchIndex.xy] = float4(payload.count, 0.0f, 0.0f, 1.0f);
+}
